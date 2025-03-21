@@ -148,6 +148,7 @@
 
             if (data.login === "ok") {
                 console.log("🎉 Đăng nhập thành công! Chuyển hướng...");
+                document.getElementById("error-message").textContent = "✅ Đăng nhập thành công!";
                 window.location.href = "trangchu.html";
             } else {
                 document.getElementById("error-message").textContent = "❌ Đăng nhập thất bại!";
