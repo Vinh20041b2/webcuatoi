@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LOGIN :>> </title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #1d80e0, #46a6ff);
+        }
+
+        .login-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            width: 320px;
+            text-align: center;
+            animation: fadeIn 1s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .avatar {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 15px;
+            border-radius: 50%;
+            animation: bounce 1.5s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .input-group {
+            text-align: left;
+            margin-bottom: 15px;
+        }
+
+        label {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            background-color: #0056b3;
+            transform: scale(1.05);
+        }
+
+        #error-message {
+            color: red;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="login-container">
+    <img src="Ảnh động cute dễ thương.gif" alt="Cute Animated Avatar" class="avatar">
+    <h2>Login</h2>
+    <div class="input-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="email@domain.com">
+    </div>
+    <div class="input-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="Enter password">
+    </div>
+    <button onclick="login()">Log in</button>
+    <div id="error-message"></div>
+</div>
+
+<script>
+    // Thông tin MQTT Broker
+    const broker = "wss://e8fa3a03f84a4ba6ae0a38cb4c21a9e6.s1.eu.hivemq.cloud:8884/mqtt";
+    const loginTopic = "web/login";
+    const resultTopic = "web/ketqua";
+    const clientId = "webClient_" + Math.random().toString(16).substr(2, 8);
+    const username = "vuvuvu";
+    const password = "1234567890Aa";
+
+    // Kết nối MQTT
+    const client = mqtt.connect(broker, {
+        clientId: clientId,
+        username: username,
+        password: password,
+        protocolId: 'MQTT',
+        protocolVersion: 4,
+    });
+
+    // Khi kết nối thành công
+    client.on("connect", function () {
+        console.log("✅ Đã kết nối MQTT Broker");
+        client.subscribe(resultTopic);
+        client.subscribe(loginTopic);
+    });
+
+    // Nhận tin nhắn MQTT
+    client.on("message", function (topic, message) {
+        console.log("📩 Nhận tin nhắn từ topic:", topic);
+        console.log("📜 Nội dung tin nhắn:", message.toString());
+
+        try {
+            const data = JSON.parse(message.toString());
+            console.log("✅ JSON đã phân tích:", data);
+
+            if (data.login === "ok") {
+                console.log("🎉 Đăng nhập thành công! Chuyển hướng...");
+                window.location.href = "trangchu.html";
+            } else {
+                document.getElementById("error-message").textContent = "❌ Đăng nhập thất bại!";
+            }
+        } catch (error) {
+            console.error("🚨 Lỗi phân tích JSON:", error);
+        }
+    });
+
+    // Xử lý đăng nhập
+    function login() {
+        const emailInput = document.getElementById("email");
+        const passwordInput = document.getElementById("password");
+        const errorMessage = document.getElementById("error-message");
+
+        if (!emailInput || !passwordInput || !errorMessage) {
+            console.error("🚨 Không tìm thấy phần tử HTML!");
+            return;
+        }
+
+        const email = emailInput.value.trim();
+        const password = passwordInput.value.trim();
+
+        if (email === "" || password === "") {
+            errorMessage.textContent = "⚠️ Vui lòng nhập đầy đủ email và mật khẩu!";
+            return;
+        }
+
+        errorMessage.textContent = ""; // Xóa thông báo lỗi nếu nhập đúng
+
+        const payload = JSON.stringify({ username: email, password: password });
+        console.log("📤 Gửi JSON đến MQTT:", payload);
+
+        client.publish(loginTopic, payload);
+    }
+</script>
+
+</body>
+</html>
