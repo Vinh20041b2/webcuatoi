@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tra cứu thông tin cảm biến</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f2f2f2;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    .navbar {
+      background-color: #007bff;
+      padding: 15px 0;
+      display: flex;
+      justify-content: center;
+    }
+    .navbar a {
+      color: white;
+      padding: 14px 20px;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .navbar a:hover {
+      background-color: #0056b3;
+    }
+    h2 {
+      margin-top: 20px;
+    }
+    .filters {
+      margin: 20px;
+    }
+    .filters select,
+    .filters input,
+    .filters button {
+      margin: 10px;
+      padding: 8px;
+      font-size: 16px;
+    }
+    button {
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #218838;
+    }
+    table {
+      width: 90%;
+      margin: 30px auto;
+      border-collapse: collapse;
+      background-color: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 12px;
+      text-align: center;
+    }
+    th {
+      background-color: #007bff;
+      color: white;
+    }
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="navbar">
+    <a href="trangchu.html">Trang chủ</a>
+    <a href="tracuu.html">Tra cứu</a>
+    <a href="testwweb.html">Cài đặt</a>
+    <a href="index.html">Đăng xuất</a>
+  </div>
+
+  <h2>Tra cứu thông tin cảm biến</h2>
+
+  <div class="filters">
+    <label for="sensor">Loại cảm biến:</label>
+    <select id="sensor">
+      <option value="">Tất cả</option>
+      <option value="nhiệt độ phòng">Nhiệt độ</option>
+      <option value="độ ẩm không khí">Độ ẩm không khí</option>
+      <option value="độ ẩm đất">Độ ẩm đất</option>
+      <option value="ánh sáng">Ánh sáng</option>
+    </select>
+
+    <label for="device">Thiết bị:</label>
+    <select id="device">
+      <option value="all">Tất cả</option>
+      <option value="ESP1">ESP1</option>
+      <option value="ESP2">ESP2</option>
+    </select><br>
+
+    <label for="from-date">Từ:</label>
+    <input type="date" id="from-date">
+    <input type="time" id="from-time">
+
+    <label for="to-date">Đến:</label>
+    <input type="date" id="to-date">
+    <input type="time" id="to-time">
+
+    <button onclick="searchData()">Tra cứu</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Thời gian</th>
+        <th>Thiết bị</th>
+        <th>Loại cảm biến</th>
+        <th>Giá trị</th>
+      </tr>
+    </thead>
+    <tbody id="sensorTable"></tbody>
+  </table>
+
+  <script>
+    const broker = "wss://e8fa3a03f84a4ba6ae0a38cb4c21a9e6.s1.eu.hivemq.cloud:8884/mqtt";
+    const clientId = "webClient_" + Math.random().toString(16).substr(2, 8);
+    const username = "vuvuvu";
+    const password = "1234567890Aa";
+
+    const searchTopic = "web/tracuu";
+    const resultTopic = "web/ketqua";
+
+    const client = mqtt.connect(broker, {
+      clientId,
+      username,
+      password,
+      reconnectPeriod: 1000,
+      connectTimeout: 30 * 1000
+    });
+
+    client.on("connect", () => {
+      console.log("✅ Kết nối MQTT thành công");
+      client.subscribe(resultTopic, err => {
+        if (!err) {
+          console.log("📡 Đã đăng ký chủ đề:", resultTopic);
+        }
+      });
+    });
+
+    client.on("message", (topic, message) => {
+      if (topic === resultTopic) {
+        const msg = message.toString();
+        const jsonStart = msg.indexOf("{");
+        if (jsonStart !== -1) {
+          try {
+            const jsonString = msg.substring(jsonStart);
+            const data = JSON.parse(jsonString);
+
+            const deviceFilter = document.getElementById("device").value;
+            const sensorFilter = document.getElementById("sensor").value;
+            const fromDate = new Date(document.getElementById("from-date").value + "T" + (document.getElementById("from-time").value || "00:00"));
+            const toDate = new Date(document.getElementById("to-date").value + "T" + (document.getElementById("to-time").value || "23:59"));
+
+            const dataTime = new Date(data.TIME);
+            const dataDevice = data.NAME;
+            const dataSensor = data["TÊN CẢM BIẾN"];
+
+            if (deviceFilter !== "all" && dataDevice !== deviceFilter) return;
+            if (sensorFilter && dataSensor !== sensorFilter) return;
+            if ((document.getElementById("from-date").value && dataTime < fromDate) ||
+                (document.getElementById("to-date").value && dataTime > toDate)) {
+              return;
+            }
+
+            const table = document.getElementById("sensorTable");
+            const row = table.insertRow(0);
+            row.insertCell(0).textContent = data.TIME;
+            row.insertCell(1).textContent = data.NAME;
+            row.insertCell(2).textContent = data["TÊN CẢM BIẾN"];
+            row.insertCell(3).textContent = data.VALUE;
+          } catch (err) {
+            console.error("❌ Lỗi parse JSON:", err);
+          }
+        }
+      }
+    });
+
+    function searchData() {
+      const type = document.getElementById("sensor").value || "all";
+      const device = document.getElementById("device").value || "all";
+      const fromDate = document.getElementById("from-date").value;
+      const fromTime = document.getElementById("from-time").value || "00:00";
+      const toDate = document.getElementById("to-date").value;
+      const toTime = document.getElementById("to-time").value || "23:59";
+
+      if (!fromDate || !toDate) {
+        alert("⚠️ Vui lòng chọn ngày bắt đầu và kết thúc!");
+        return;
+      }
+
+      const searchQuery = {
+        type,
+        device,
+        startDateTime: `${fromDate}T${fromTime}:00`,
+        endDateTime: `${toDate}T${toTime}:00`
+      };
+
+      console.log("📤 Gửi truy vấn:", searchQuery);
+      client.publish(searchTopic, JSON.stringify(searchQuery));
+    }
+  </script>
+</body>
+</html>
